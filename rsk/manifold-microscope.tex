@@ -1,0 +1,147 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{hyperref}
+
+\title{The RSK Transformer as a Manifold Microscope}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section*{The claim}
+
+A 1.2M-parameter transformer\footnote{Model and checkpoints available at \url{https://huggingface.co/RobBobin/rsk-transformer}.} trained on inverse RSK is an unusually
+good instrument for studying how neural networks learn maps between
+manifolds. Three properties make it exceptional: the input and output
+spaces have known combinatorial structure, the model is small enough
+for complete mechanistic analysis, and the same architecture learns
+four distinct bijections that share a common local geometry.
+
+\section*{Why ``manifold'' is the right word}
+
+Standard Young Tableaux are discrete objects, but the structured
+embedding---value, row, column, tableau identity, each mapped to
+$\mathbb{R}^{128}$ and summed---lifts them onto a continuous
+submanifold $M_{\mathrm{in}} \subset \mathbb{R}^{128 \times 2n}$. The
+SYT conditions (rows increase left-to-right, columns increase
+top-to-bottom) constrain which points on this manifold are occupied.
+The transformer's six residual layers then implement a smooth flow
+\[
+  x \mapsto x + f(x)
+\]
+that deforms $M_{\mathrm{in}}$ into a manifold $M_{\mathrm{out}}$
+where the target permutation is linearly separable. This is not
+metaphor: each layer is a composition of differentiable operations
+(linear projections, softmax, GELU, layer norm), so the composite map
+is smooth, and the residual connection makes each layer a
+near-identity diffeomorphism.
+
+\section*{What makes it a microscope}
+
+Most transformer interpretability work studies language models with
+billions of parameters, polysemantic neurons, and no ground truth
+about what the ``right'' algorithm is. The RSK transformer inverts all
+three obstacles.
+
+\paragraph{Known ground truth.}
+The inverse RSK algorithm is a well-defined sequence of reverse
+row-insertions, fully specified by Schensted's 1961 construction. When
+we find SAE features that fire on specific tableau entries ($F_{356}$
+on $P[7]$, $F_{622}$ on $Q[0]$) or on Burge local-rule triples in the
+cylindric model, we can check these against the textbook algorithm.
+The manifold has a known atlas.
+
+\paragraph{Complete ablation is feasible.}
+With 6 layers, 8 heads, and 1.2M parameters, every component can be
+individually ablated, and every attention pattern can be visualised.
+The finding that Layer~2 is critical (ablation drops accuracy from
+100\% to 62\%) while Layers~4--5 are vestigial tells us exactly where
+the flow does its work. In a billion-parameter model, this kind of
+localisation is usually impossible.
+
+\paragraph{The anti-memorisation argument is clean.}
+At $n = 10$, the model trains on 500K of 3.6M possible permutations
+(14\%) and achieves 100\% on the held-out 86\%. At $n = 15$, it trains
+on 0.00004\% of the $1.3 \times 10^{12}$ permutation space and still
+reaches 99.99\%. A lookup table would need orders of magnitude more
+parameters. The model must have learned the manifold's
+geometry---the smooth structure that allows interpolation between
+training points---rather than memorising input--output pairs.
+
+\section*{The fiber bundle decomposition}
+
+The architecture has a natural geometric interpretation as a map on a
+trivial fiber bundle $B \times \mathbb{R}^{128}$, where $B$ is the
+set of $2n$ token positions and $\mathbb{R}^{128}$ is the embedding
+fiber at each position.
+
+Attention is the horizontal component: it transports information
+between positions, implementing parallel transport along paths
+determined by the data. The MLP is the vertical component: it
+transforms within each fiber independently. This is not a loose
+analogy---it is the standard decomposition of a map on a fiber bundle
+into horizontal and vertical parts, and the architecture enforces it
+by construction.
+
+The SAE results on the cylindric model give this decomposition teeth.
+Features fire on the specific triples of positions where the Burge
+local rule operates, at $3.0$--$3.3\times$ above baseline lift. The
+connection on the bundle---the pattern of which positions attend to
+which---is not arbitrary. It follows the combinatorial paths that the
+growth diagram algorithm prescribes.
+
+\section*{The attention entropy phase transition}
+
+At $n = 8$ and $n = 10$, there is a sharp boundary at
+Layer~$3 \to$~Layer~4: early layers have concentrated (low-entropy)
+attention, late layers have diffuse (high-entropy) attention. In the
+flow picture, this is a fixed point: the manifold has been deformed
+into its target shape, and subsequent layers produce negligible
+displacement.
+
+At $n = 15$, the phase transition disappears. All six layers maintain
+structured attention. The manifold is more complex, the flow needs
+more time to converge, so it extends to fill the available depth. This
+is the continuous-flow analogue of a stiff ODE requiring smaller time
+steps, and it is direct evidence that the model allocates computation
+adaptively---using exactly as many ``structured layers'' as the
+problem demands.
+
+\section*{Four bijections, one local geometry}
+
+The strongest evidence for the manifold perspective is that the same
+architecture, with no modification, learns four different bijections:
+\begin{enumerate}
+  \item Permutation RSK ($\sigma \leftrightarrow (P, Q)$ standard Young tableaux)
+  \item Matrix RSK (integer matrix $\leftrightarrow (P, Q)$ semistandard Young tableaux)
+  \item Hillman--Grassl (reverse plane partition $\leftrightarrow$ arbitrary filling)
+  \item Cylindric growth diagrams (cylindric plane partition $\leftrightarrow$ ALCD labels)
+\end{enumerate}
+
+These bijections act on different combinatorial objects with different
+symmetries. But they all share the same local structure: Fomin's
+growth diagrams, in which a grid is filled vertex-by-vertex using a
+local rule that takes three neighbouring partitions and produces the
+fourth.
+
+In manifold terms: the input manifolds are different, but they have
+the same local differential structure. The structured 2D embedding
+preserves this local geometry, and the transformer learns a flow that
+works for any manifold with Fomin-type local structure. The
+architecture is a microscope focused on exactly the right geometric
+feature.
+
+\section*{What this suggests}
+
+Small models trained on well-understood mathematical bijections may be
+the cleanest setting we have for studying how neural networks learn
+maps between structured spaces. The RSK transformer offers something
+rare: a model where we know what the manifolds are, we know what the
+correct map between them is, we can verify that the model has learned
+it, and we can trace how each layer deforms the geometry. If we want
+to understand what transformers do to manifolds, we should start here.
+
+\end{document}
